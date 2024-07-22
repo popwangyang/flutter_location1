@@ -23,8 +23,12 @@ if (flutterVersionName == null) {
     flutterVersionName = "1.0"
 }
 
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
 android {
-    namespace = "com.example.flutter_location1"
+    namespace = "com.example.flutter_location"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,24 +39,80 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.flutter_location1"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutterVersionCode.toInteger()
-        versionName = flutterVersionName
+        applicationId = "com.example.flutter_location"
+        minSdkVersion 21
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        ndk {
+            abiFilters 'armeabi', 'armeabi-v7a', 'x86', 'x86_64', 'mips', 'mips64', 'arm64-v8a'
+        }
+        manifestPlaceholders = [
+            JPUSH_PKGNAME : applicationId,
+            JPUSH_APPKEY : "b8b672ff7292635193f1a680", // NOTE: JPush 上注册的包名对应的 Appkey.
+            JPUSH_CHANNEL : "developer-default", //暂时填写默认值即可.
+        ]
+    }
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+        debug {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
     }
 
     buildTypes {
-        release {
+         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            //关闭删除无用资源
+            shrinkResources false
+            //关闭删除无用代码
+            minifyEnabled false
+            zipAlignEnabled true
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            manifestPlaceholders = [applicationName: "android.app.Application" ]
+            //自定义构建apk的名字
+            android.applicationVariants.all {
+                variant ->
+                    variant.outputs.all { output ->
+                        def date = new Date().format("yyMMddHHmmss", TimeZone.getTimeZone("GMT+08"))
+                        if (variant.buildType.name == 'debug'){
+                            output.outputFileName = "business_manager_${android.defaultConfig.versionName}.${android.defaultConfig.versionCode}_${date}_debug.apk"
+                        }else if (variant.buildType.name == 'release'){
+                            output.outputFileName = "business_manager_${android.defaultConfig.versionName}.${android.defaultConfig.versionCode}_${date}_release.apk"
+                        }
+                    }
+            }
+        }
+        debug {
+            manifestPlaceholders = [applicationName: "android.app.Application" ]
+        }
+
+        build {
+            manifestPlaceholders = [applicationName: "android.app.Application" ]
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    //2D地图so及jar
+    implementation('com.amap.api:3dmap:8.1.0')
+    //定位功能
+    implementation 'com.amap.api:location:5.6.0'
+    //搜索功能
+    implementation 'com.amap.api:search:5.0.0'
+    implementation 'cn.jiguang.sdk.plugin:huawei:4.6.0' // 极光厂商插件版本(查看jpush插件源码可得版本号)与接入 JPush 版本保持一致，下同
 }
